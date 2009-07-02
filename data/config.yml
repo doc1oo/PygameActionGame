@@ -1,0 +1,15 @@
+# Game Setting File (YAML)
+fullscreen: 0
+hwsurface: 0
+mouse_support: 0
+debuglevel: 2
+asyncblit: 1
+fonttype: 0
+disp_bpp: 32
+fontpath: font\ipag\ipag.otf
+music_volume: 1.0
+music_freq: 44100
+music_bits: 16
+fps: 60
+win_alpha: 214
+flipkey: 1
