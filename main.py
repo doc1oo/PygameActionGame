@@ -50,7 +50,7 @@ class Config:
 		self.music_freq	 = self.get("music_freq", 44100)
 		self.music_bits	 = self.get("music_bits", 16)
 		self.music_volume = self.getFloat("music_volume", 1.0)
-		self.fontsize	 = self.get("fontsize", 20)
+		self.fontsize	 = self.get("fontsize", 12)
 		self.fontpath	 = self.getStr("fontpath", os.path.join("font", "ipag\\ipag.otf"))
 		self.fonttype	 = self.get("fonttype", 1)
 		self.lineheight	 = self.getFloat("lineheight", 1.5)
@@ -87,13 +87,12 @@ class Config:
 
 
 
-class GameState:
+class State:
 
 	def __init__(self):
+		self.fps = 0
 		self.playerLife = 100
-		self.playerrx
 		self.gamePauseFlag	 = False
-		pass
 
 	def writeToFile(self):
 		pass
@@ -1183,25 +1182,46 @@ class SceneStage(SceneInterface):
 
 		g.sound.playMusic(1)
 
-		self.player = Char(g.img["char"], FRect(12*CS,8*CS,CS,CS), (0,5*CS,CS,CS))
+		self.gravity = 1
+		self.fallSpeed = 0
+		self.player = Char(g.img["char"], FRect(2*CS,-2*CS,2*CS,2*CS), (0,0*CS,2*CS,2*CS))
 		g.controller.connect(self)
 
 	def call(self):
 		# player move
+
+		speed = 2
+		if (self.key[CANCEL]):
+			speed *= 2
+
 		if (self.key[UP]):
-			self.player.move(0, -1)
+			self.player.move(0, -speed)
 		if (self.key[DOWN]):
-			self.player.move(0, 1)
+			self.player.move(0, speed)
 		if (self.key[LEFT]):
-			self.player.move(-1, 0)
+			self.player.move(-speed, 0)
 		if (self.key[RIGHT]):
-			self.player.move(1, 0)
+			self.player.move(speed, 0)
+
+		jumpPower = 20 / 2
+		if (self.keyOnce[ENTER] and self.fallSpeed == 0):
+			self.fallSpeed = -jumpPower
+
+		self.player.move(0, self.fallSpeed)
+
+		if (self.player.dest.y >= (240 - 3 * CS)):
+			self.player.dest.y = 240 - 3 * CS
+			self.fallSpeed = 0
+		else:
+			self.fallSpeed += 0.98 /2
+
 		#self.player.setPos(100+100*math.cos(g.counter/100.0), 100+100*math.sin(g.counter/100.0))
 
 	def display(self):
 		g.screen.blit(g.img["stage1"], (0, 0))
-		g.screen.blit(g.img["char"], (0, 160))
+		g.screen.blit(g.img["bg"], (0, 160))
 		self.player.display();
+		mes("Life: %02.1f" % g.state.playerLife, (0, 2*CS))
 		pass
 
 
@@ -1266,7 +1286,7 @@ class SceneDebug(SceneInterface):
 		#self.mesPosY = 100 * math.sin(math.pi * 0.1 * g.counter  )
 
 	def display(self):
-		mes("fps:"+`g.state.fps`, (0, CS))
+		mes("fps: %02.1f" % g.state.fps, (0, CS))
 
 
 
@@ -1301,12 +1321,6 @@ class SceneManager:
 
 	def clear(self):
 		self.sceneList = []
-
-
-class State:
-
-	def __init__(self):
-		self.fps = 0
 
 
 class FRect:
@@ -1348,6 +1362,8 @@ class Char:
 	def setPos(self, x, y):
 		self.dest.x = x
 		self.dest.y = y
+	def getPos():
+		return Pos(self.dest.x, self.dest.y)
 
 	def display(self):
 		g.screen.blit(self.surface, (self.dest.x, self.dest.y), self.src)
@@ -1417,7 +1433,7 @@ class Game:
 		pygame.mouse.set_visible(g.config.doMouseView)
 
 		# Font
-		g.font = pygame.font.Font(g.config.fontpath, 24)
+		g.font = pygame.font.Font(g.config.fontpath, g.config.fontsize)
 
 		# Joy Stick
 		pygame.joystick.init()
