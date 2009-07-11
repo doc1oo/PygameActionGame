@@ -13,6 +13,7 @@ import fpformat
 import copy
 import profile
 import math
+import new
 
 import pygame
 import yaml
@@ -702,7 +703,6 @@ class Menu(ControlInterface, VisibleObject):
 		"""
 		#if colCtrSw:
 		#	color = colCtrChg(color, 1)
-		global g
 		ren = render(g.font, item.name, 0, color).convert()
 
 		return ren
@@ -1182,47 +1182,73 @@ class SceneStage(SceneInterface):
 
 		g.sound.playMusic(1)
 
-		self.gravity = 1
-		self.fallSpeed = 0
-		self.player = Char(g.img["char"], FRect(2*CS,-2*CS,2*CS,2*CS), (0,0*CS,2*CS,2*CS))
+
+		self.gravity = 0.2
+		self.time = 1.0
+		self.fallCount = 0
+		self.animeCount = 0
+		self.dir = 0
+		self.gSpeed = 0.0
+		g.player = Char(g.img["char"], FRect(2*CS,-2*CS,2*CS,2*CS), FRect(0,0*CS,1*CS,1*CS))
+		self.charMgr = CharManager()
+		self.charMgr.add(g.player)
 		g.controller.connect(self)
+		#import urllib
+		#f = urllib.urlopen("http://twitter.com/statuses/public_timeline.xml")
+		#self.xml = f.read()
 
 	def call(self):
-		# player move
 
-		speed = 2
+		self.charMgr.call()
+
+		# player shot
 		if (self.key[CANCEL]):
-			speed *= 2
+			c = Char(g.img["char"], FRect(g.player.dest.x + CS, g.player.dest.y, CS, CS), FRect(8*CS, 0, CS, CS))
+			def test(self):
+				self.dest.x += 12
 
+			c.call = newMethod(c, test)
+			self.charMgr.add(c)
+
+		# player move
+		speed = 2
 		if (self.key[UP]):
-			self.player.move(0, -speed)
+			g.player.move(0, -speed)
+			self.dir = 6
 		if (self.key[DOWN]):
-			self.player.move(0, speed)
+			g.player.move(0, speed)
+			self.dir = 2
 		if (self.key[LEFT]):
-			self.player.move(-speed, 0)
+			g.player.move(-speed, 0)
+			self.dir = 4
+			self.animeCount += 1
 		if (self.key[RIGHT]):
-			self.player.move(speed, 0)
+			g.player.move(speed, 0)
+			self.dir = 0
+			self.animeCount += 1
 
-		jumpPower = 20 / 2
-		if (self.keyOnce[ENTER] and self.fallSpeed == 0):
-			self.fallSpeed = -jumpPower
+	   # player Anime
+		g.player.src.x = (self.dir + (self.animeCount / 10 % 2)) * CS
 
-		self.player.move(0, self.fallSpeed)
+		# jump
+		jumpPower = 5
+		if (self.keyOnce[ENTER] and self.gSpeed == 0):
+			self.gSpeed = -jumpPower
 
-		if (self.player.dest.y >= (240 - 3 * CS)):
-			self.player.dest.y = 240 - 3 * CS
-			self.fallSpeed = 0
+		g.player.dest.y += self.gSpeed
+
+		if (g.player.dest.y >= (240 - 2 * CS)):
+			g.player.dest.y = 240 - 2 * CS
+			self.gSpeed = 0
 		else:
-			self.fallSpeed += 0.98 /2
-
-		#self.player.setPos(100+100*math.cos(g.counter/100.0), 100+100*math.sin(g.counter/100.0))
+			self.gSpeed += self.gravity
 
 	def display(self):
 		g.screen.blit(g.img["stage1"], (0, 0))
-		g.screen.blit(g.img["bg"], (0, 160))
-		self.player.display();
+		#g.screen.blit(g.img["bg"], (0, 160))
+		self.charMgr.display()
 		mes("Life: %02.1f" % g.state.playerLife, (0, 2*CS))
-		pass
+		mes("gSpeed: %02.1f" % self.gSpeed, (0, 4*CS))
 
 
 
@@ -1354,6 +1380,8 @@ class Char:
  		self.src = src
  		self.collision = dest
  		self.surface = srcSurface
+ 		self.eraseFlag = False
+ 		self.deathFlag = False
 
 	def move(self, x, y):
 		self.dest.x += x
@@ -1362,12 +1390,62 @@ class Char:
 	def setPos(self, x, y):
 		self.dest.x = x
 		self.dest.y = y
-	def getPos():
-		return Pos(self.dest.x, self.dest.y)
+
+	def call(self):
+		pass
 
 	def display(self):
-		g.screen.blit(self.surface, (self.dest.x, self.dest.y), self.src)
+		g.screen.blit(self.surface, (self.dest.x, self.dest.y), (self.src.x, self.src.y, self.src.w, self.src.h))
 
+
+
+class ObjectManager:
+	def __init__(self):
+		self.list = []
+
+	def add(self, obj):
+		self.list.append(obj)
+
+	def extend(self, obj):
+		self.list.extend(obj)
+
+	def getList(self):
+		return self.list
+
+	def get(self, index):
+		return self.list[index]
+
+	def getById(self, id):
+		for obj in self.List:
+			if obj.id == id:
+				return obj
+		return None
+
+	def remove(self, targetObj):
+		for i in range(len(self.list)):
+			if targetObj is self.list[i]:
+				return self.list.pop(i)
+		return None
+
+	def free(self):
+		self.list = []
+
+
+class CharManager(ObjectManager):
+
+	def __init__(self):
+		ObjectManager.__init__(self)
+
+	def call(self):
+		for char in self.list:
+			char.call()
+
+	def display(self):
+		for char in self.list:
+			char.display()
+
+	def __del__(self):
+		pass
 
 
 class Game:
@@ -1666,6 +1744,8 @@ def textlinesToList(lines):
 		line = line.replace("\r", "")
 		filebuf.append( unicode(line, 'japanese.shift-jis') )
 
+def newMethod(obj, func):
+	return new.instancemethod(func, obj, obj.__class__)
 
 
 if __name__ == '__main__':
